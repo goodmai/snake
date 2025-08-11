@@ -13,11 +13,13 @@
     "lint:fix": "eslint . --ext .ts --fix",
     "format": "prettier --write \"**/*.{ts,json,md}\"",
     "test": "yarn workspaces run test",
-    "dev:redis": "docker-compose up -d redis",
+    "test:e2e": "playwright test",
+    "dev:redis": "docker compose up -d redis",
     "dev:up": "yarn dev:redis && (lsof -ti :3001 -sTCP:LISTEN | xargs -r kill); yarn dev:frontend ",
     "dev:all": "yarn dev:redis && concurrently -k \"yarn dev:frontend\" \"yarn dev:bot:safe\""
   },
   "devDependencies": {
+    "@playwright/test": "^1.45.3",
     "@typescript-eslint/eslint-plugin": "^7.13.0",
     "@typescript-eslint/parser": "^7.13.0",
     "eslint": "^8.57.0",

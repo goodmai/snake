@@ -1,4 +1,0 @@
-yarn run v1.22.22
-$ yarn workspace bot dev
-$ tsx watch src/index.ts
-[14:51:17] [32mINFO[39m: [36mHealthcheck and API server running on http://localhost:3001[39m
