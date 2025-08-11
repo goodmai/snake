@@ -24,6 +24,7 @@ async function sendScoreToBackend(score: number): Promise<void> {
 export enum GameStatus {
   Intro,
   Running,
+  Paused,
   GameOver,
   Stopped,
 }

@@ -56,6 +56,35 @@ LOG_LEVEL="info"
 - Build: `docker build -t your-username/telegram-snake -f packages/bot/Dockerfile .`
 - Run: `docker run -d --env-file ./.env -p 3001:3001 your-username/telegram-snake`
 
+## docker-compose (Redis optional)
+A sample compose file is provided to spin up Redis for persistence, bound only to 127.0.0.1 and protected by password.
+
+```
+version: '3.8'
+services:
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}"]
+    ports:
+      - "127.0.0.1:6379:6379"  # доступ только с localhost
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+volumes:
+  redis_data:
+```
+
+Usage:
+- Set in .env:
+  - `REDIS_PASSWORD=your_strong_password`
+  - `REDIS_URL=redis://default:${REDIS_PASSWORD}@localhost:6379`
+- Start: `yarn dev:redis`
+
+Security:
+- Port exposed only on 127.0.0.1
+- AUTH required via `--requirepass`
+- Use strong password and keep `.env` out of VCS (already ignored)
+
 ## CI/CD
 - GitHub Actions pipeline: lint, test, build, Vercel deploy for frontend, Docker build+push for bot
 - Required secrets in GitHub repository:

@@ -7,16 +7,15 @@ describe('Config Validation', () => {
   });
 
   it('should throw an error if BOT_TOKEN is missing', async () => {
-    vi.stubGlobal('process', {
-      ...process,
-      env: {
-        GAME_URL: 'http://test.com',
-      },
-    });
+    // isolate environment
+    const originalEnv = { ...process.env };
+    process.env = { NODE_ENV: 'test', VITEST: '1', GAME_URL: 'http://test.com' } as any;
 
     await expect(import('../config/index.js')).rejects.toThrow(
       'Invalid environment variables',
     );
+
+    process.env = originalEnv as any;
   });
 
   it('should pass if all required variables are present', async () => {

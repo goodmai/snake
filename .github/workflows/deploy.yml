@@ -24,6 +24,19 @@ jobs:
   test:
     name: 🧪 Run Tests
     runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7-alpine
+        env:
+          REDIS_PASSWORD: test_secret_password
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli -a $REDIS_PASSWORD ping || exit 1" \
+          --health-interval 5s \
+          --health-timeout 3s \
+          --health-retries 5
+        command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}"]
     steps:
       - name: ⬇️ Checkout code
         uses: actions/checkout@v4
@@ -35,7 +48,7 @@ jobs:
       - name: 📦 Install dependencies
         run: yarn install --frozen-lockfile
       - name: ⚡ Run all tests
-        run: yarn test
+        run: REDIS_URL=redis://default:${{ job.services.redis.env.REDIS_PASSWORD }}@localhost:6379 yarn test
 
   build_and_deploy:
     name: 🏗️ Build & Deploy

@@ -23,14 +23,14 @@
         background-color: #1a1a1a;
         border: 2px solid #333;
       }
-      #controls { margin-top: var(--gap); display: grid; grid-template-columns: 64px 64px 64px; grid-template-rows: 64px 64px; gap: 8px; align-items: center; justify-items: center; }
-      #controls button { width: 64px; height: 64px; border-radius: 8px; border: 1px solid #444; background: #222; color: #fff; font-size: 20px; }
+      #controls { margin-top: var(--gap); display: grid; grid-template-columns: var(--btn-size, 64px) var(--btn-size, 64px) var(--btn-size, 64px); grid-template-rows: var(--btn-size, 64px) var(--btn-size, 64px); gap: calc(var(--btn-size, 64px) * 0.125); align-items: center; justify-items: center; }
+      #controls button { width: var(--btn-size, 64px); height: var(--btn-size, 64px); border-radius: calc(var(--btn-size, 64px) * 0.125); border: 1px solid #444; background: #222; color: #fff; font-size: var(--btn-font, 20px); }
       #controls .up { grid-column: 2; grid-row: 1; }
       #controls .left { grid-column: 1; grid-row: 2; }
       #controls .right { grid-column: 3; grid-row: 2; }
       #controls .down { grid-column: 2; grid-row: 2; }
       #restart { margin-top: var(--gap); }
-      #restart button { padding: 8px 16px; border-radius: 8px; border: 1px solid #444; background: #2a2a2a; color: #fff; font-size: 16px; }
+      #restart button { padding: calc(var(--btn-size, 64px) * 0.125) calc(var(--btn-size, 64px) * 0.25); border-radius: calc(var(--btn-size, 64px) * 0.125); border: 1px solid #444; background: #2a2a2a; color: #fff; font-size: var(--btn-font, 16px); }
       #leaderboard { margin-top: var(--gap); width: 400px; max-width: 90vw; }
       #leaderboard h3 { margin: 0 0 8px 0; }
       #leaderboard table { width: 100%; border-collapse: collapse; }

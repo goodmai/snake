@@ -1,11 +1,15 @@
-yarn workspace v1.22.22
-warning From Yarn 1.0 onwards, scripts don't require "--" for options to be forwarded. In a future version, any explicit "--" will be forwarded as-is to the scripts.
 yarn run v1.22.22
-$ vite --port 8888 --host 0.0.0.0
+$ yarn workspace frontend dev -- --port 8889 --host 0.0.0.0
+warning From Yarn 1.0 onwards, scripts don't require "--" for options to be forwarded. In a future version, any explicit "--" will be forwarded as-is to the scripts.
+$ vite --port 8889 --host 0.0.0.0
 [33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
-Port 8888 is in use, trying another one...
+Port 8889 is in use, trying another one...
+Port 8890 is in use, trying another one...
+Port 8891 is in use, trying another one...
+Port 8892 is in use, trying another one...
 
-  VITE v5.4.19  ready in 161 ms
+  VITE v5.4.19  ready in 126 ms
 
-  ➜  Local:   http://localhost:8889/
-  ➜  Network: http://192.168.18.44:8889/
+  ➜  Local:   http://localhost:8893/
+  ➜  Network: http://192.168.18.44:8893/
+  ➜  Network: http://172.19.0.1:8893/

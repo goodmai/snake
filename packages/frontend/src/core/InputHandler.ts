@@ -3,6 +3,9 @@ import { Direction } from '../config';
 export class InputHandler {
   private currentDirection: Direction = 'RIGHT';
   private lastInputDirection: Direction = 'RIGHT';
+  private touchStartX: number | null = null;
+  private touchStartY: number | null = null;
+  private readonly swipeThreshold = 24; // px
 
   public init(canvas?: HTMLCanvasElement, controls?: {
     up?: HTMLElement | null;
@@ -19,6 +22,12 @@ export class InputHandler {
         this.handleTouchStart.bind(this, canvas),
         { passive: false },
       );
+      canvas.addEventListener(
+        'touchmove',
+        this.handleTouchMove.bind(this),
+        { passive: false },
+      );
+      canvas.addEventListener('touchend', this.handleTouchEnd.bind(this));
     }
 
     if (controls) {
@@ -66,6 +75,9 @@ export class InputHandler {
     const dx = x - cx;
     const dy = y - cy;
 
+    this.touchStartX = touch.clientX;
+    this.touchStartY = touch.clientY;
+
     let newDirection: Direction | null = null;
     if (Math.abs(dx) > Math.abs(dy)) {
       // Горизонтальный приоритет
@@ -80,6 +92,32 @@ export class InputHandler {
     if (newDirection) {
       this.lastInputDirection = newDirection;
     }
+  }
+
+  private handleTouchMove(event: TouchEvent): void {
+    if (this.touchStartX === null || this.touchStartY === null) return;
+    event.preventDefault();
+    const touch = event.touches[0];
+    const dx = touch.clientX - this.touchStartX;
+    const dy = touch.clientY - this.touchStartY;
+    if (Math.abs(dx) < this.swipeThreshold && Math.abs(dy) < this.swipeThreshold) return;
+
+    if (Math.abs(dx) > Math.abs(dy)) {
+      if (dx < 0) this.setDirection('LEFT');
+      else this.setDirection('RIGHT');
+    } else {
+      if (dy < 0) this.setDirection('UP');
+      else this.setDirection('DOWN');
+    }
+
+    // reset to avoid multiple triggers
+    this.touchStartX = null;
+    this.touchStartY = null;
+  }
+
+  private handleTouchEnd(): void {
+    this.touchStartX = null;
+    this.touchStartY = null;
   }
 
   private setDirection(dir: Direction): void {

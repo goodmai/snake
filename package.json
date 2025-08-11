@@ -6,12 +6,16 @@
   ],
   "scripts": {
     "dev:bot": "yarn workspace bot dev",
-    "dev:frontend": "yarn workspace frontend dev",
+    "dev:bot:safe": "(lsof -ti :3001 -sTCP:LISTEN | xargs -r kill); yarn workspace bot dev",
+    "dev:frontend": "yarn workspace frontend dev -- --port 8889 --host 0.0.0.0",
     "build": "yarn workspace bot build && yarn workspace frontend build",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "format": "prettier --write \"**/*.{ts,json,md}\"",
-    "test": "yarn workspaces foreach run test"
+    "test": "yarn workspaces run test",
+    "dev:redis": "docker-compose up -d redis",
+    "dev:up": "yarn dev:redis && (lsof -ti :3001 -sTCP:LISTEN | xargs -r kill); yarn dev:frontend ",
+    "dev:all": "yarn dev:redis && concurrently -k \"yarn dev:frontend\" \"yarn dev:bot:safe\""
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^7.13.0",

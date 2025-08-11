@@ -8,8 +8,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootEnvPath = path.resolve(__dirname, '../../../../.env');
 
-dotenv.config({ path: rootEnvPath });
-dotenv.config();
+// Do not load .env files during tests to keep unit tests isolated
+// Also skip when VITEST is defined
+if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
+  dotenv.config({ path: rootEnvPath });
+  dotenv.config();
+}
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production']).default('development'),
