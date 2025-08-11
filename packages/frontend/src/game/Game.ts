@@ -13,6 +13,7 @@ export class Game {
   private lastLeaderboard: { name: string; score: number }[] | null = null;
   private leaderboardRequested = false;
   private gameLoopId: number | null = null;
+  private e2eForceHandled = false;
   private statusListeners: Array<(s: GameStatus)=>void> = [];
 
   private introPath: { x: number; y: number }[] = [];
@@ -27,6 +28,16 @@ export class Game {
 
     this.buildIntroPath();
     this.restart = this.restart.bind(this);
+
+    // Ensure leaderboard fetch happens on GameOver regardless of code path (update/loop/force)
+    this.onStatusChange((s) => {
+      if (s === GameStatus.GameOver) {
+        if (!this.leaderboardRequested) {
+          this.leaderboardRequested = true;
+          this.fetchLeaderboard().finally(() => (this.leaderboardRequested = false));
+        }
+      }
+    });
   }
 
   public start(): void {
@@ -71,6 +82,11 @@ export class Game {
     }
 
     if (this.gameState.status === GameStatus.GameOver) {
+      // Ensure leaderboard request happens even if GameOver was forced outside update()
+      if (!this.leaderboardRequested) {
+        this.leaderboardRequested = true;
+        this.fetchLeaderboard().finally(() => (this.leaderboardRequested = false));
+      }
       this.render();
       this.setStatus(GameStatus.Stopped);
       return;
@@ -105,6 +121,13 @@ export class Game {
 
     if (this.gameState.status === GameStatus.Paused) {
       return;
+    }
+
+    // E2E hook: allow forcing immediate game over via global flag
+    const force = (window as any).__E2E_FORCE_GAME_OVER__;
+    if (force && !this.e2eForceHandled) {
+      this.e2eForceHandled = true;
+      this.gameState.forceGameOver();
     }
 
     const prevScore = this.gameState.score;
@@ -154,7 +177,7 @@ export class Game {
 
   private async fetchLeaderboard(): Promise<void> {
     try {
-      const resp = await fetch('/api/leaderboard');
+      const resp = await fetch('/api/leaderboard', { cache: 'no-store' });
       if (!resp.ok) return;
       const data: { userId: number; score: number; name: string }[] = await resp.json();
       this.lastLeaderboard = data.map(d => ({ name: d.name, score: d.score }));
@@ -165,6 +188,20 @@ export class Game {
 
   private beginGame(): void {
     this.setStatus(GameStatus.Running);
+  }
+
+  // E2E helpers
+  public getStatus(): string {
+    return GameStatus[this.gameState.status];
+  }
+
+  public forceGameOver(): void {
+    this.gameState.forceGameOver();
+    // Ensure leaderboard fetch is triggered immediately for E2E reliability
+    if (!this.leaderboardRequested) {
+      this.leaderboardRequested = true;
+      this.fetchLeaderboard().finally(() => (this.leaderboardRequested = false));
+    }
   }
 
   private buildIntroPath(): void {

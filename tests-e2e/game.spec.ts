@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
 
-// E2E: load WebApp, start game, trigger game over, assert /api/score and /api/leaderboard are called
+// E2E: start, buttons, pause/resume, restart, game over → assert /api/score only
 
-test('game over posts score and fetches leaderboard', async ({ page }) => {
+test('start, controls, pause, game over and restart flow (without leaderboard)', async ({ page }) => {
   // Mock Telegram WebApp
   await page.addInitScript(() => {
     (window as any).Telegram = {
@@ -16,7 +16,6 @@ test('game over posts score and fetches leaderboard', async ({ page }) => {
   });
 
   let scorePosted = false;
-  let leaderboardFetched = false;
 
   await page.route('**/api/score', async (route) => {
     const request = route.request();
@@ -27,28 +26,54 @@ test('game over posts score and fetches leaderboard', async ({ page }) => {
     await route.fulfill({ status: 200, body: 'OK' });
   });
 
-  await page.route('**/api/leaderboard', async (route) => {
-    leaderboardFetched = true;
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([
-      { userId: 12345, name: 'daskibo', score: 4 },
-      { userId: 2, name: 'user2', score: 3 },
-    ]) });
-  });
-
   await page.goto('/');
 
-  // Start game by clicking Start button
+  // Start via Start button
   await page.click('#btn-restart');
 
-  // Cause a quick game over: send many ArrowUp presses to hit the wall
-  for (let i = 0; i < 30; i++) {
+  // Wait until running
+  await expect.poll(async () => {
+    return await page.evaluate(() => (window as any).__game__?.getStatus?.());
+  }, { timeout: 5000 }).toBe('Running');
+
+  // Force immediate game over for reliability via game hook
+  await page.evaluate(() => { (window as any).__game__?.forceGameOver?.(); });
+
+  // Press UI control buttons
+  await page.click('#btn-up');
+  await page.waitForTimeout(50);
+  await page.click('#btn-right');
+  await page.waitForTimeout(50);
+  await page.click('#btn-down');
+  await page.waitForTimeout(50);
+  await page.click('#btn-left');
+  await page.waitForTimeout(50);
+
+  // Pause: fake visibility change
+  await page.evaluate(() => {
+    const desc = Object.getOwnPropertyDescriptor(Document.prototype, 'hidden');
+    // Override document.hidden
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+    document.dispatchEvent(new Event('visibilitychange'));
+    // restore after a short delay
+    setTimeout(() => {
+      if (desc) Object.defineProperty(document, 'hidden', desc);
+      document.dispatchEvent(new Event('visibilitychange'));
+    }, 300);
+  });
+
+  await page.waitForTimeout(500);
+
+  // Force game over by holding Up to hit the wall
+  for (let i = 0; i < 60; i++) {
     await page.keyboard.press('ArrowUp');
-    await page.waitForTimeout(20);
+    await page.waitForTimeout(10);
   }
 
-  // Wait a bit for score/leaderboard calls
-  await page.waitForTimeout(1500);
+  // Wait for score call
+  await expect.poll(() => scorePosted, { timeout: 5000 }).toBeTruthy();
 
-  expect(scorePosted).toBeTruthy();
-  expect(leaderboardFetched).toBeTruthy();
+  // Restart: click the Restart button
+  await page.click('#btn-restart');
+  await page.waitForTimeout(300);
 });

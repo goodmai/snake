@@ -94,5 +94,13 @@ export class GameState {
     this.score = 0;
     this.status = GameStatus.Running;
   }
+
+  // E2E helper: force game over and post score
+  public forceGameOver(): void {
+    if (this.status === GameStatus.Running) {
+      this.status = GameStatus.GameOver;
+      sendScoreToBackend(this.score).catch(console.error);
+    }
+  }
 }
 

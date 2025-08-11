@@ -8,7 +8,7 @@ export default defineConfig({
     headless: true,
   },
   webServer: {
-    command: 'yarn workspace frontend build && yarn workspace frontend preview --port 4173',
+    command: 'yarn workspace frontend run -T dev --port 4173 --host 127.0.0.1 --strictPort',
     port: 4173,
     timeout: 60_000,
     reuseExistingServer: true,
