@@ -34,22 +34,34 @@
       #leaderboard h3 { margin: 0 0 8px 0; }
       #leaderboard table { width: 100%; border-collapse: collapse; }
       #leaderboard th, #leaderboard td { border-bottom: 1px solid #333; padding: 6px 8px; text-align: left; font-size: 14px; }
+
+      /* Cinematic starfield background and vignette */
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background: radial-gradient(circle at 20% 30%, rgba(0, 255, 200, 0.06), transparent 40%),
+                    radial-gradient(circle at 80% 70%, rgba(255, 0, 150, 0.06), transparent 40%),
+                    radial-gradient(circle at 50% 50%, rgba(0, 120, 255, 0.05), transparent 50%);
+        pointer-events: none;
+        animation: bg-float 18s linear infinite alternate;
+      }
+      body::after {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background: radial-gradient(ellipse at center, rgba(0,0,0,0) 50%, rgba(0,0,0,0.55) 100%);
+        pointer-events: none;
+      }
+      @keyframes bg-float {
+        0% { transform: translate3d(0,0,0) scale(1); }
+        100% { transform: translate3d(0,-12px,0) scale(1.02); }
+      }
     </style>
   </head>
   <body>
-    <main>
-      <canvas id="game-canvas"></canvas>
-      <div id="controls">
-        <button id="btn-up" class="up">▲</button>
-        <button id="btn-left" class="left">◀</button>
-        <button id="btn-right" class="right">▶</button>
-        <button id="btn-down" class="down">▼</button>
-      </div>
-      	<div id="restart">	<button id="btn-restart">
-Start ▶
-</button>	</div>
-    </main>
-    <script type="module" src="/src/index.ts"></script>
+    <div id="root"></div>
+    <script type="module" src="/src/app/main.tsx"></script>
   </body>
 </html>
 

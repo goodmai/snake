@@ -45,14 +45,14 @@ services:
 
   frontend:
     build:
-      context: packages/frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: packages/frontend/Dockerfile
       args:
         VITE_BASE: "/"
     environment:
       NODE_ENV: production
     ports:
-      - "8080:80"  # accessible via http://<LAN-IP>:8080
+      - "8080:80"  # accessible via http://\u003cLAN-IP\u003e:8080
     depends_on:
       - bot
     restart: unless-stopped

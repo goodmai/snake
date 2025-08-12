@@ -3,7 +3,7 @@ export const GameConfig = {
   CANVAS_HEIGHT: 320,
   GRID_SIZE: 20,
   GAME_SPEED_MS: 144,
-  SNAKE_INITIAL_LENGTH: 3,
+  SNAKE_INITIAL_LENGTH: 4,
 
   COLORS: {
     BACKGROUND: '#1a1a1a',

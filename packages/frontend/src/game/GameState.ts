@@ -1,6 +1,7 @@
 import { Food } from '../entities/Food';
 import { Snake } from '../entities/Snake';
 import { GameConfig } from '../config';
+import { applyModifierForColor } from './modifiers';
 
 async function sendScoreToBackend(score: number): Promise<void> {
   const tg = (window as any).Telegram?.WebApp;
@@ -53,6 +54,7 @@ export class GameState {
     this.food.tickMove(this.snake.getBody());
 
     this.snake.move();
+    this.snake.tickEffects();
 
     if (this.isWallCollision() || this.snake.checkSelfCollision()) {
       this.status = GameStatus.GameOver;
@@ -110,26 +112,20 @@ export class GameState {
     this.score++;
     const { COLORS } = GameConfig;
     const eatenColor = (COLORS.RAINBOW as any)[this.food.color];
+    // Поглощение цвета: окрасить хвост и усилить последний сегмент
     this.snake.grow(eatenColor);
 
-    // Apply effects
-    switch (this.food.color) {
-      case 'RED':
-        this.speedMultiplier *= 0.95;
-        break;
-      case 'GREEN':
-        this.speedMultiplier *= 1.05;
-        break;
-      case 'YELLOW':
-        this.canShoot = true;
-        this.updateShootButton();
-        break;
-      case 'VIOLET':
-        this.canShoot = false;
-        this.updateShootButton();
-        break;
-      // ORANGE blinking handled in renderer; BLUE movement already handled in tickMove
-    }
+    // Клиентский лог: факт поедания с цветом
+    try {
+      fetch('/api/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: 'foodEaten', payload: { color: this.food.color, hex: eatenColor, score: this.score } }),
+      });
+    } catch {}
+
+    // Применить модификатор цвета
+    applyModifierForColor(this, this.food.color as any);
 
     if (this.isWin()) {
       this.status = GameStatus.GameOver;

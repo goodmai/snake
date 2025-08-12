@@ -8,6 +8,8 @@
     "moduleResolution": "bundler",
     "allowJs": false,
     "strict": true,
+    "jsx": "react-jsx",
+    "types": ["vite/client"],
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,

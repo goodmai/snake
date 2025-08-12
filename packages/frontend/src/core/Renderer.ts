@@ -89,36 +89,54 @@ export class Renderer {
     this.ctx.drawImage(this.gridCanvas, 0, 0, this.canvas.width, this.canvas.height, 0, 0, this.canvas.width, this.canvas.height);
   }
 
+  private drawRoundedCell(x: number, y: number, color: string, radius = Math.max(2, Math.round(this.pixelSize * 0.2)), glow = false): void {
+    const px = x * this.pixelSize;
+    const py = y * this.pixelSize;
+    const w = this.pixelSize;
+    const h = this.pixelSize;
+    const r = Math.min(radius, w / 2, h / 2);
+
+    const ctx = this.ctx;
+    ctx.save();
+    if (glow) {
+      ctx.shadowColor = '#00eaff';
+      ctx.shadowBlur = Math.max(8, Math.round(this.pixelSize * 0.35));
+    }
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(px + r, py);
+    ctx.lineTo(px + w - r, py);
+    ctx.quadraticCurveTo(px + w, py, px + w, py + r);
+    ctx.lineTo(px + w, py + h - r);
+    ctx.quadraticCurveTo(px + w, py + h, px + w - r, py + h);
+    ctx.lineTo(px + r, py + h);
+    ctx.quadraticCurveTo(px, py + h, px, py + h - r);
+    ctx.lineTo(px, py + r);
+    ctx.quadraticCurveTo(px, py, px + r, py);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
   public drawSnake(snake: Snake): void {
     const { COLORS } = GameConfig;
     const body = snake.getBody();
 
     const head = body[0];
-    this.ctx.fillStyle = head.color || COLORS.SNAKE_HEAD;
-    this.ctx.fillRect(
-      head.x * this.pixelSize,
-      head.y * this.pixelSize,
-      this.pixelSize,
-      this.pixelSize
-    );
+    const headColor = head.color || COLORS.SNAKE_HEAD;
+    const glow = (snake as any).hasTurnGlow?.() === true;
+    this.drawRoundedCell(head.x, head.y, headColor, undefined, glow);
 
     for (let i = 1; i < body.length; i++) {
       const segment = body[i];
-      this.ctx.fillStyle = segment.color || COLORS.SNAKE_BODY;
-      this.ctx.fillRect(
-        segment.x * this.pixelSize,
-        segment.y * this.pixelSize,
-        this.pixelSize,
-        this.pixelSize
-      );
+      const color = segment.color || COLORS.SNAKE_BODY;
+      this.drawRoundedCell(segment.x, segment.y, color);
     }
   }
 
   public drawFood(food: Food): void {
-    const { COLORS } = GameConfig;
     if (!food.isVisibleThisFrame()) return;
-    const color = (COLORS.RAINBOW as any)[food.color] || COLORS.FOOD;
-    this.ctx.fillStyle = color;
+    this.ctx.fillStyle = food.currentHexColor();
     this.ctx.fillRect(
       food.position.x * this.pixelSize,
       food.position.y * this.pixelSize,

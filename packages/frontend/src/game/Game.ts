@@ -132,6 +132,23 @@ export class Game {
       body.unshift({ x: next.x, y: next.y });
       if (body.length > this.introTargetLen) body.pop();
       this.introIndex = (this.introIndex + 1) % this.introPath.length;
+      // Радужная пульсация: обновим цвета сегментов по синусу от времени
+      const t = performance.now() / 400; // период ~400мс
+      for (let i = 0; i < body.length; i++) {
+        const hue = Math.floor(((i * 30 + t * 180) % 360));
+        // Используем запятую в hsl() для совместимости вебвью
+        body[i].color = `hsl(${hue}, 100%, 50%)`;
+      }
+      // Клиентский лог для диагностики интро-раскраски (раз в ~1с)
+      if (Math.floor(performance.now() / 1000) !== Math.floor((performance.now() - (currentTime - this.lastFrameTime)) / 1000)) {
+        try {
+          fetch('/api/log', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ event: 'introColors', payload: body.slice(0, 5).map(s => s.color) }),
+          });
+        } catch {}
+      }
       return;
     }
 
