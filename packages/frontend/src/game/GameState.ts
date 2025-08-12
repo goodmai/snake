@@ -2,6 +2,7 @@ import { Food } from '../entities/Food';
 import { Snake } from '../entities/Snake';
 import { GameConfig } from '../config';
 import { applyModifierForColor } from './modifiers';
+import { EffectManager } from './EffectManager';
 
 async function sendScoreToBackend(score: number): Promise<void> {
   const tg = (window as any).Telegram?.WebApp;
@@ -47,6 +48,7 @@ export class GameState {
   public canShoot: boolean = false;
   public bullets: Bullet[] = [];
   private speedMultiplier = 1; // affected by red/green
+  private effects = new EffectManager();
   // Timed effects
   private adrenalineUntil = 0;
   private ghostUntil = 0;
@@ -67,9 +69,7 @@ export class GameState {
   public getCurrentSpeedMs(): number {
     let mult = this.speedMultiplier;
     const now = performance.now();
-    if (now < this.adrenalineUntil) mult *= 1/1.5; // faster
-    if (now < this.superspeedUntil) mult *= 1/2.0; // x2 speed
-    if (now < this.iceUntil) mult *= 2.0; // slower (x0.5 speed)
+    mult = this.effects.getSpeedMultiplier(now, mult);
     return Math.max(48, Math.round(GameConfig.GAME_SPEED_MS * mult));
   }
 
@@ -80,23 +80,11 @@ export class GameState {
     // update input inversion flag on handler via global
     const now = performance.now();
     try {
-      (window as any).__INPUT_INVERT__ = now < this.inverseUntil;
+      (window as any).__INPUT_INVERT__ = this.effects.isInvertControls(now);
     } catch {}
 
-    // Repulsor: push food away from head
-    if (now < this.repulsorUntil) {
-      const head = this.snake.getHead();
-      const dx = this.food.position.x - head.x;
-      const dy = this.food.position.y - head.y;
-      const dist = Math.abs(dx) + Math.abs(dy);
-      if (dist > 0 && dist <= 3) {
-        const stepX = dx === 0 ? 0 : (dx > 0 ? 1 : -1);
-        const stepY = dy === 0 ? 0 : (dy > 0 ? 1 : -1);
-        // try move away one cell (prefer greater component)
-        if (Math.abs(dx) >= Math.abs(dy)) this.food.position.x += stepX;
-        else this.food.position.y += stepY;
-      }
-    }
+    // Centralized per-tick effects
+    this.effects.onTick(this, now);
 
     this.snake.move();
     this.snake.tickEffects();
@@ -104,12 +92,12 @@ export class GameState {
     // update bullets animation and collisions
     this.updateBullets();
 
-    const ghostActive = performance.now() < this.ghostUntil;
-    const invuln = performance.now() < this.superspeedUntil || performance.now() < this.shieldUntil;
+    const ghostActive = this.effects.isGhost(performance.now());
+    const invuln = this.effects.isInvulnerable(performance.now());
     if (this.isWallCollision() || (!ghostActive && this.snake.checkSelfCollision())) {
       if (invuln) {
-        // consume shield if active; superspeed is not consumed
-        if (performance.now() < this.shieldUntil) this.shieldUntil = 0;
+        // consume shield hit if active
+        this.effects.consumeShield(performance.now());
       } else {
         this.status = GameStatus.GameOver;
         sendScoreToBackend(this.score).catch(console.error);
@@ -169,7 +157,7 @@ export class GameState {
   private onEatFood(): void {
     // apply score with multiplier
     const now = performance.now();
-    this.score += now < this.multiplierUntil ? 2 : 1;
+    this.score += this.effects.getScoreMultiplier(now);
     const { COLORS, EFFECTS } = GameConfig;
     const eatenColor = this.food.powerUp ? (this.food as any).colorA : (COLORS.RAINBOW as any)[this.food.color];
     // Поглощение цвета: окрасить хвост и усилить последний сегмент
@@ -182,17 +170,15 @@ export class GameState {
 
     // Apply special power-up effects
     const now2 = performance.now();
+    if (this.food.powerUp) this.effects.activate(this.food.powerUp as any, now2, this);
     switch (this.food.powerUp) {
       case 'INFERNO':
-        this.adrenalineUntil = now2 + EFFECTS.INFERNO_MS; // x1.5 speed
         play('sfx-inferno');
         break;
       case 'PHASE':
-        this.ghostUntil = now2 + EFFECTS.PHASE_MS; // pass-through
         play('sfx-phase');
         break;
       case 'ICE':
-        this.iceUntil = now2 + EFFECTS.ICE_MS; // slow
         play('sfx-ice');
         break;
       case 'TOXIC': {
@@ -205,24 +191,18 @@ export class GameState {
         break;
       }
       case 'BLACKHOLE':
-        this.inverseUntil = now2 + EFFECTS.BLACK_HOLE_MS; // controls invert
         play('sfx-blackhole');
         break;
       case 'SUPERSONIC':
-        this.superspeedUntil = now2 + EFFECTS.SUPERSONIC_MS;
-        // invulnerability implies collisions are ignored briefly
         play('sfx-supersonic');
         break;
       case 'SHIELD':
-        this.shieldUntil = now2 + EFFECTS.SHIELD_MS;
         play('sfx-shield');
         break;
       case 'MULTIPLIER':
-        this.multiplierUntil = now2 + EFFECTS.MULTIPLIER_MS;
         play('sfx-multiplier');
         break;
       case 'REPULSOR':
-        this.repulsorUntil = now2 + EFFECTS.REPULSOR_MS;
         play('sfx-repulsor');
         break;
       default:
@@ -254,6 +234,17 @@ export class GameState {
   }
 
   public shoot(): boolean {
+    // If effect LASERBEAM charged: consume and cut one tail segment, count as hit
+    if (this.effects.isLaserCharged()) {
+      this.effects.consumeLaser();
+      const body = this.snake.getBody();
+      if (body.length > 3) body.pop();
+      try {
+        const el = document.getElementById('sfx-laser') as HTMLAudioElement | null; el?.play?.();
+      } catch {}
+      return true;
+    }
+
     if (!this.canShoot) return false;
     const head = this.snake.getHead();
     const dir = this.getDirectionVector();
