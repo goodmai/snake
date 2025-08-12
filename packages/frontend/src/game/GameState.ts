@@ -52,6 +52,10 @@ export class GameState {
   private ghostUntil = 0;
   private inverseUntil = 0;
   private iceUntil = 0;
+  private superspeedUntil = 0;
+  private shieldUntil = 0;
+  private multiplierUntil = 0;
+  private repulsorUntil = 0;
 
   constructor() {
     this.snake = new Snake();
@@ -64,6 +68,7 @@ export class GameState {
     let mult = this.speedMultiplier;
     const now = performance.now();
     if (now < this.adrenalineUntil) mult *= 1/1.5; // faster
+    if (now < this.superspeedUntil) mult *= 1/2.0; // x2 speed
     if (now < this.iceUntil) mult *= 2.0; // slower (x0.5 speed)
     return Math.max(48, Math.round(GameConfig.GAME_SPEED_MS * mult));
   }
@@ -78,6 +83,21 @@ export class GameState {
       (window as any).__INPUT_INVERT__ = now < this.inverseUntil;
     } catch {}
 
+    // Repulsor: push food away from head
+    if (now < this.repulsorUntil) {
+      const head = this.snake.getHead();
+      const dx = this.food.position.x - head.x;
+      const dy = this.food.position.y - head.y;
+      const dist = Math.abs(dx) + Math.abs(dy);
+      if (dist > 0 && dist <= 3) {
+        const stepX = dx === 0 ? 0 : (dx > 0 ? 1 : -1);
+        const stepY = dy === 0 ? 0 : (dy > 0 ? 1 : -1);
+        // try move away one cell (prefer greater component)
+        if (Math.abs(dx) >= Math.abs(dy)) this.food.position.x += stepX;
+        else this.food.position.y += stepY;
+      }
+    }
+
     this.snake.move();
     this.snake.tickEffects();
 
@@ -85,10 +105,16 @@ export class GameState {
     this.updateBullets();
 
     const ghostActive = performance.now() < this.ghostUntil;
+    const invuln = performance.now() < this.superspeedUntil || performance.now() < this.shieldUntil;
     if (this.isWallCollision() || (!ghostActive && this.snake.checkSelfCollision())) {
-      this.status = GameStatus.GameOver;
-      sendScoreToBackend(this.score).catch(console.error);
-      return;
+      if (invuln) {
+        // consume shield if active; superspeed is not consumed
+        if (performance.now() < this.shieldUntil) this.shieldUntil = 0;
+      } else {
+        this.status = GameStatus.GameOver;
+        sendScoreToBackend(this.score).catch(console.error);
+        return;
+      }
     }
 
     if (this.isFoodCollision()) {
@@ -141,7 +167,9 @@ export class GameState {
     }
   }
   private onEatFood(): void {
-    this.score++;
+    // apply score with multiplier
+    const now = performance.now();
+    this.score += now < this.multiplierUntil ? 2 : 1;
     const { COLORS, EFFECTS } = GameConfig;
     const eatenColor = this.food.powerUp ? (this.food as any).colorA : (COLORS.RAINBOW as any)[this.food.color];
     // Поглощение цвета: окрасить хвост и усилить последний сегмент
@@ -153,18 +181,18 @@ export class GameState {
     };
 
     // Apply special power-up effects
-    const now = performance.now();
+    const now2 = performance.now();
     switch (this.food.powerUp) {
       case 'INFERNO':
-        this.adrenalineUntil = now + EFFECTS.INFERNO_MS; // x1.5 speed
+        this.adrenalineUntil = now2 + EFFECTS.INFERNO_MS; // x1.5 speed
         play('sfx-inferno');
         break;
       case 'PHASE':
-        this.ghostUntil = now + EFFECTS.PHASE_MS; // pass-through
+        this.ghostUntil = now2 + EFFECTS.PHASE_MS; // pass-through
         play('sfx-phase');
         break;
       case 'ICE':
-        this.iceUntil = now + EFFECTS.ICE_MS; // slow
+        this.iceUntil = now2 + EFFECTS.ICE_MS; // slow
         play('sfx-ice');
         break;
       case 'TOXIC': {
@@ -177,8 +205,25 @@ export class GameState {
         break;
       }
       case 'BLACKHOLE':
-        this.inverseUntil = now + EFFECTS.BLACK_HOLE_MS; // controls invert
+        this.inverseUntil = now2 + EFFECTS.BLACK_HOLE_MS; // controls invert
         play('sfx-blackhole');
+        break;
+      case 'SUPERSONIC':
+        this.superspeedUntil = now2 + EFFECTS.SUPERSONIC_MS;
+        // invulnerability implies collisions are ignored briefly
+        play('sfx-supersonic');
+        break;
+      case 'SHIELD':
+        this.shieldUntil = now2 + EFFECTS.SHIELD_MS;
+        play('sfx-shield');
+        break;
+      case 'MULTIPLIER':
+        this.multiplierUntil = now2 + EFFECTS.MULTIPLIER_MS;
+        play('sfx-multiplier');
+        break;
+      case 'REPULSOR':
+        this.repulsorUntil = now2 + EFFECTS.REPULSOR_MS;
+        play('sfx-repulsor');
         break;
       default:
         // fallback small chime

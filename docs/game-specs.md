@@ -96,4 +96,17 @@ This document defines the current game rules, UI, inputs, rendering, audio/visua
 - Unit tests: utilities, modifiers, snake, power-up gating in tests
 - E2E: leaderboard rendering after forced game over; request interception for /api/leaderboard
 
+14. Powerful Double-Color Power-ups (subset implemented)
+- D_INFERNO (INFERNO): #FF4848 → #FFA500, speed x1.5 (3s)
+- D_ICESHARD (ICE): #3498DB → #1ABC9C, speed x0.5 (3s)
+- D_PHASESHIFT (PHASE): #9B59B6 → #F5ABF3, ghost pass-through (4s)
+- D_SUPERSONIC (SUPERSONIC): #4D4DFF → #FFFFFF, speed x2 + brief invulnerability (2s)
+- D_SHIELD (SHIELD): #FFD700 → #C0C0C0, one-hit shield (up to 10s)
+- D_MULTIPLIER (MULTIPLIER): #E5E4E2 → #8A2BE2, double points (7s)
+- D_REPULSOR (REPULSOR): #B0C4DE → #87CEEB, repels food within 3 cells (5s)
+
+S_ORANGE (standard): Teleports to a random cell every ~2s during runtime (disabled in tests).
+- Unit tests: utilities, modifiers, snake, power-up gating in tests
+- E2E: leaderboard rendering after forced game over; request interception for /api/leaderboard
+
 

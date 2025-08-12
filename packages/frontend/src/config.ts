@@ -11,6 +11,10 @@ export const GameConfig = {
     ICE_MS: 3000,
     TOXIC_POOL_MS: 2000,
     BLACK_HOLE_MS: 4000,
+    SUPERSONIC_MS: 2000,
+    SHIELD_MS: 10000,
+    MULTIPLIER_MS: 7000,
+    REPULSOR_MS: 5000,
   },
 
   COLORS: {
@@ -42,6 +46,14 @@ export const GameConfig = {
       ICE_B: '#1ABC9C',
       TOXIC_A: '#2ECC71',
       TOXIC_B: '#F1C40F',
+      SUPERSONIC_A: '#4D4DFF',
+      SUPERSONIC_B: '#FFFFFF',
+      SHIELD_A: '#FFD700',
+      SHIELD_B: '#C0C0C0',
+      REPULSOR_A: '#B0C4DE',
+      REPULSOR_B: '#87CEEB',
+      MULT_A: '#E5E4E2',
+      MULT_B: '#8A2BE2',
     },
   },
 } as const;
@@ -49,5 +61,5 @@ export const GameConfig = {
 export type Rainbow = 'RED' | 'ORANGE' | 'YELLOW' | 'GREEN' | 'BLUE' | 'VIOLET';
 export type Coord = { x: number; y: number; color?: string };
 export type Direction = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT';
-export type PowerUp = 'INFERNO' | 'PHASE' | 'ICE' | 'TOXIC' | 'BLACKHOLE';
+export type PowerUp = 'INFERNO' | 'PHASE' | 'ICE' | 'TOXIC' | 'BLACKHOLE' | 'SUPERSONIC' | 'SHIELD' | 'MULTIPLIER' | 'REPULSOR';
 

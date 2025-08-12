@@ -11,6 +11,7 @@ export class Food {
   private blinkTick = 0; // slow down orange blink
   private blueDir: 1 | -1 = 1; // for BLUE horizontal movement
   private blueTick: number = 0; // throttle BLUE movement speed
+  private lastTeleportAt: number = 0; // for ORANGE
 
   constructor(snakeBody: Coord[]) {
     this.position = { x: 0, y: 0 };
@@ -59,9 +60,13 @@ export class Food {
         this.colorA = COLORS.EXTRA.TOXIC_A;
         this.colorB = COLORS.EXTRA.TOXIC_B;
       } else {
-        this.powerUp = 'BLACKHOLE';
-        this.colorA = COLORS.EXTRA.BLACK;
-        this.colorB = COLORS.EXTRA.WHITE;
+        // extend with new powerful types
+        const p2 = Math.random();
+        if (p2 < 0.2) { this.powerUp = 'SUPERSONIC'; this.colorA = COLORS.EXTRA.SUPERSONIC_A; this.colorB = COLORS.EXTRA.SUPERSONIC_B; }
+        else if (p2 < 0.4) { this.powerUp = 'SHIELD'; this.colorA = COLORS.EXTRA.SHIELD_A; this.colorB = COLORS.EXTRA.SHIELD_B; }
+        else if (p2 < 0.6) { this.powerUp = 'MULTIPLIER'; this.colorA = COLORS.EXTRA.MULT_A; this.colorB = COLORS.EXTRA.MULT_B; }
+        else if (p2 < 0.8) { this.powerUp = 'REPULSOR'; this.colorA = COLORS.EXTRA.REPULSOR_A; this.colorB = COLORS.EXTRA.REPULSOR_B; }
+        else { this.powerUp = 'BLACKHOLE'; this.colorA = COLORS.EXTRA.BLACK; this.colorB = COLORS.EXTRA.WHITE; }
       }
       try {
         if (typeof window !== 'undefined') {
@@ -83,6 +88,26 @@ export class Food {
 
   public tickMove(snakeBody: Coord[]): void {
     // BLUE moves slowly horizontal left-right within bounds and avoiding snake
+    const isTest = typeof process !== 'undefined' && (process as any).env?.NODE_ENV === 'test';
+    if (this.color === 'ORANGE' && !isTest) {
+      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      if (!this.lastTeleportAt) this.lastTeleportAt = now;
+      if (now - this.lastTeleportAt > 2000) {
+        // teleport to random free cell
+        const { GRID_SIZE, CANVAS_WIDTH, CANVAS_HEIGHT } = GameConfig;
+        const maxX = Math.floor(CANVAS_WIDTH / GRID_SIZE);
+        const maxY = Math.floor(CANVAS_HEIGHT / GRID_SIZE);
+        let x = this.position.x, y = this.position.y;
+        let tries = 0;
+        do {
+          x = Math.floor(Math.random() * maxX);
+          y = Math.floor(Math.random() * maxY);
+          tries++;
+        } while (tries < 50 && snakeBody.some(s => s.x === x && s.y === y));
+        this.position.x = x; this.position.y = y;
+        this.lastTeleportAt = now;
+      }
+    }
     if (this.color !== 'BLUE') return;
     const { GRID_SIZE, CANVAS_WIDTH } = GameConfig;
     const maxX = Math.floor(CANVAS_WIDTH / GRID_SIZE);
