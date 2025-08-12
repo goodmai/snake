@@ -168,7 +168,7 @@ describe('Leaderboard and Score API', () => {
 
     await request(app).post('/score').send({ score: 12, initData }).expect(200);
 
-    const { __fake, getRedis } = await import('../core/RedisClient.js');
+    const { getRedis } = await import('../core/RedisClient.js');
     const r: any = await (getRedis as any)();
 
     // Validate hash

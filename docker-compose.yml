@@ -1,4 +1,14 @@
+# This compose uses environment variables from the repository root ./.env file
+# Required keys in .env:
+#   BOT_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+#   REDIS_PASSWORD=dev_redis_password
+# Optional:
+#   GAME_SHORT_NAME=snake
+#   GAME_URL=http://<LAN-IP>:8080  # scripts/dev-up.sh will compute if not set
+#   LOG_LEVEL=info
+
 version: '3.8'
+
 services:
   redis:
     image: redis:7-alpine
@@ -9,11 +19,43 @@ services:
       "--requirepass", "${REDIS_PASSWORD}",
       "--maxmemory-policy", "allkeys-lru"
     ]
-    # Публикуем порт только на localhost для защиты от внешнего доступа
+    # Expose only to localhost for security
     ports:
       - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     restart: unless-stopped
+
+  bot:
+    build:
+      context: .
+      dockerfile: packages/bot/Dockerfile
+    environment:
+      BOT_TOKEN: ${BOT_TOKEN}
+      GAME_SHORT_NAME: ${GAME_SHORT_NAME:-snake}
+      GAME_URL: ${GAME_URL}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379
+      NODE_ENV: production
+    depends_on:
+      - redis
+    ports:
+      - "3001:3001"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: packages/frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_BASE: "/"
+    environment:
+      NODE_ENV: production
+    ports:
+      - "8080:80"  # accessible via http://<LAN-IP>:8080
+    depends_on:
+      - bot
+    restart: unless-stopped
+
 volumes:
   redis_data:

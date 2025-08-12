@@ -121,49 +121,49 @@ export function setupScoreHandling(app: Application, bot: Telegraf) {
       const key = await getLastGameMessageForUser(userId);
       if (key) {
         if ('inline_message_id' in key) {
-          await bot.telegram.setGameScore(userId, score, {
+          await (bot.telegram as any).setGameScore(userId, score, {
             inline_message_id: key.inline_message_id,
             edit_message: true,
-          } as any);
+          });
 
           // Получим актуальную таблицу рекордов и обновим текст сообщения
-          const highs = await bot.telegram.getGameHighScores(userId, {
+          const highs = await (bot.telegram as any).getGameHighScores(userId, {
             inline_message_id: key.inline_message_id,
-          } as any);
+          });
           const lines = highs
             .slice(0, 10)
-            .map((h, i) => {
+.map((h: any, i: number) => {
               const name = h.user.username ? `@${h.user.username}` : [h.user.first_name, h.user.last_name].filter(Boolean).join(' ') || `${h.user.id}`;
               return `${i + 1}. ${name} — ${h.score}`;
             })
             .join('\n');
           const text = `🏆 Leaderboard\n${lines}`;
-          await bot.telegram.editMessageText(undefined as any, undefined as any, key.inline_message_id, text, { parse_mode: 'HTML' } as any);
+          await (bot.telegram as any).editMessageText(undefined, undefined, key.inline_message_id, text, { parse_mode: 'HTML' });
         } else {
-          await bot.telegram.setGameScore(userId, score, {
+          await (bot.telegram as any).setGameScore(userId, score, {
             chat_id: key.chat_id,
             message_id: key.message_id,
             edit_message: true,
-          } as any);
+          });
 
-          const highs = await bot.telegram.getGameHighScores(userId, {
+          const highs = await (bot.telegram as any).getGameHighScores(userId, {
             chat_id: key.chat_id,
             message_id: key.message_id,
-          } as any);
+          });
           const lines = highs
             .slice(0, 10)
-            .map((h, i) => {
+.map((h: any, i: number) => {
               const name = h.user.username ? `@${h.user.username}` : [h.user.first_name, h.user.last_name].filter(Boolean).join(' ') || `${h.user.id}`;
               return `${i + 1}. ${name} — ${h.score}`;
             })
             .join('\n');
           const text = `🏆 Leaderboard\n${lines}`;
-          await bot.telegram.editMessageText(key.chat_id, key.message_id, undefined as any, text, { parse_mode: 'HTML' } as any);
+          await (bot.telegram as any).editMessageText(key.chat_id, key.message_id, undefined, text, { parse_mode: 'HTML' });
         }
         return res.status(200).send('Score updated');
       }
       // fallback без редактирования сообщения
-      await bot.telegram.setGameScore(userId, score, { disable_edit_message: true } as any);
+      await (bot.telegram as any).setGameScore(userId, score, { disable_edit_message: true });
       return res.status(200).send('Score updated');
     } catch (err) {
       logger.error(err, 'Failed to set game score');

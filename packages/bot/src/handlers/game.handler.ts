@@ -1,5 +1,4 @@
 import { Context } from 'telegraf';
-import { CallbackQuery } from 'telegraf/types';
 import { logger } from '../core/Logger.js';
 
 export class GameHandler {
@@ -9,8 +8,7 @@ export class GameHandler {
   ) {}
 
   public onCallbackQuery(ctx: Context): void {
-    const callbackQuery =
-      ctx.callbackQuery as CallbackQuery.GameShortNameCallbackQuery;
+    const callbackQuery = (ctx as any).callbackQuery as any;
 
     if (callbackQuery?.game_short_name !== this.gameShortName) {
       ctx
@@ -32,9 +30,9 @@ export class GameHandler {
       }).catch((e) => logger.error(e, 'Failed to store game message mapping'));
     }
 
-    ctx
+    (ctx as any)
       .answerCbQuery(undefined, { url: this.gameUrl })
-      .catch((e) => logger.error(e, 'Failed to answer game callback query'));
+      .catch((e: any) => logger.error(e, 'Failed to answer game callback query'));
   }
 
   public async onInlineQuery(ctx: Context): Promise<void> {
