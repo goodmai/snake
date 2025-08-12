@@ -71,6 +71,39 @@ describe('Rainbow features', () => {
     expect(hit).toBe(true);
     expect(gs.score).toBe(oldScore + 1);
   });
+
+  it('snake tail segment gets eaten food color', () => {
+    const gs = new GameState();
+    // Make sure shoot button exists for any UI updates
+    const btn = document.createElement('button');
+    btn.id = 'btn-shoot';
+    document.body.appendChild(btn);
+
+    // Force a known color on food and eat it by placing in next cell
+    (gs as any).food.color = 'BLUE';
+    // prevent blue from moving away during update tick
+    (gs as any).food.tickMove = () => {};
+    const head = gs.snake.getHead();
+    (gs as any).food.position = { x: head.x + 1, y: head.y } as any;
+    const beforeLen = gs.snake.getBody().length;
+    gs.update();
+    const body = gs.snake.getBody();
+    expect(body.length).toBe(beforeLen + 1);
+    const tail = body[body.length - 1];
+    // BLUE color hex
+    expect(tail.color).toBe('#0074d9');
+  });
+
+  it('food color randomizes across respawns', () => {
+    const gs = new GameState();
+    const seen = new Set<string>();
+    for (let i = 0; i < 20; i++) {
+      (gs as any).food.respawn(gs.snake.getBody());
+      seen.add((gs as any).food.color);
+    }
+    // Expect to have seen multiple rainbow colors
+    expect(seen.size).toBeGreaterThan(2);
+  });
 });
 
 import { describe, it, expect, beforeEach } from 'vitest';
