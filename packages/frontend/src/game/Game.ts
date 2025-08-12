@@ -23,6 +23,11 @@ export class Game {
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new Renderer(canvas);
     this.inputHandler = new InputHandler();
+    (this.inputHandler as any).onDirection = (dir: string) => {
+      (window as any).__glogger__?.event('key', { dir });
+      const map: any = { UP: 'U', DOWN: 'D', LEFT: 'L', RIGHT: 'R' };
+      (window as any).__glogger__?.pushCmd(map[dir] || '?');
+    };
     this.gameState = new GameState();
     this.uiManager = new UIManager(this.renderer.getContext());
 
@@ -43,6 +48,12 @@ export class Game {
   public start(): void {
     // Handle DPR and resize
     this.renderer.setupDPR();
+    // start logging session
+    (async () => {
+      const gl = new (window as any).GameLoggerCls();
+      (window as any).__glogger__ = gl;
+      await gl.start();
+    })();
     window.addEventListener('resize', () => this.renderer.setupDPR());
     const controls = {
       up: document.getElementById('btn-up'),
@@ -78,8 +89,11 @@ export class Game {
 
     // keyboard support for shooting
     window.addEventListener('keydown', (e) => {
-      if (e.key === ' ') {
-        this.gameState.shoot();
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (this.gameState.canShoot) {
+          this.gameState.shoot();
+        }
       }
     });
 
@@ -105,6 +119,7 @@ export class Game {
       }
       this.render();
       this.setStatus(GameStatus.Stopped);
+      (window as any).__glogger__?.finish(this.gameState.score);
       return;
     }
 
@@ -138,16 +153,6 @@ export class Game {
         const hue = Math.floor(((i * 30 + t * 180) % 360));
         // Используем запятую в hsl() для совместимости вебвью
         body[i].color = `hsl(${hue}, 100%, 50%)`;
-      }
-      // Клиентский лог для диагностики интро-раскраски (раз в ~1с)
-      if (Math.floor(performance.now() / 1000) !== Math.floor((performance.now() - (currentTime - this.lastFrameTime)) / 1000)) {
-        try {
-          fetch('/api/log', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ event: 'introColors', payload: body.slice(0, 5).map(s => s.color) }),
-          });
-        } catch {}
       }
       return;
     }
@@ -185,11 +190,15 @@ export class Game {
 
   private render(): void {
     this.renderer.clear();
+    // dreamy starfield background
+    this.renderer.drawStarfield();
     this.renderer.drawGrid();
 
     if (this.gameState.status !== GameStatus.Intro) {
       this.renderer.drawFood(this.gameState.food);
       this.renderer.drawSnake(this.gameState.snake);
+      // draw bullets over the field
+      this.renderer.drawBullets(this.gameState.bullets);
       this.uiManager.drawScore(this.gameState.score);
     } else {
       // В интро показываем только демонстрационную змейку

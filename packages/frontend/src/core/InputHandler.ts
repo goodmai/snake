@@ -6,6 +6,7 @@ export class InputHandler {
   private touchStartX: number | null = null;
   private touchStartY: number | null = null;
   private readonly swipeThreshold = 24; // px
+  private inverted = false;
 
   public init(canvas?: HTMLCanvasElement, controls?: {
     up?: HTMLElement | null;
@@ -40,22 +41,26 @@ export class InputHandler {
 
   private handleKeyDown(event: KeyboardEvent): void {
     let newDirection: Direction | null = null;
-    switch (event.key) {
-      case 'ArrowUp':
-        if (this.currentDirection !== 'DOWN') newDirection = 'UP';
-        break;
-      case 'ArrowDown':
-        if (this.currentDirection !== 'UP') newDirection = 'DOWN';
-        break;
-      case 'ArrowLeft':
-        if (this.currentDirection !== 'RIGHT') newDirection = 'LEFT';
-        break;
-      case 'ArrowRight':
-        if (this.currentDirection !== 'LEFT') newDirection = 'RIGHT';
-        break;
+    const key = event.key;
+    const map = this.inverted
+      ? { ArrowUp: 'DOWN', ArrowDown: 'UP', ArrowLeft: 'RIGHT', ArrowRight: 'LEFT' } as const
+      : { ArrowUp: 'UP', ArrowDown: 'DOWN', ArrowLeft: 'LEFT', ArrowRight: 'RIGHT' } as const;
+    const candidate = (map as any)[key] as Direction | undefined;
+    if (candidate) {
+      if (
+        !(
+          (candidate === 'UP' && this.currentDirection === 'DOWN') ||
+          (candidate === 'DOWN' && this.currentDirection === 'UP') ||
+          (candidate === 'LEFT' && this.currentDirection === 'RIGHT') ||
+          (candidate === 'RIGHT' && this.currentDirection === 'LEFT')
+        )
+      ) {
+        newDirection = candidate;
+      }
     }
     if (newDirection) {
       this.lastInputDirection = newDirection;
+      try { (this as any).onDirection?.(newDirection); } catch {}
     }
   }
 
@@ -119,6 +124,8 @@ export class InputHandler {
     this.touchStartX = null;
     this.touchStartY = null;
   }
+
+  public setInverted(v: boolean): void { this.inverted = v; }
 
   private setDirection(dir: Direction): void {
     // запрещаем разворот на 180°

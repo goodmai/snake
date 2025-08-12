@@ -84,6 +84,86 @@ export function setupScoreHandling(app: Application, bot: Telegraf) {
     }
   });
 
+  // Session management
+  app.post('/session/start', async (req, res) => {
+    try {
+      const { initData } = req.body || {};
+      let valid = initData ? validateInitData(initData) : ({} as any);
+      let userInfo = initData ? extractUser(initData) : null;
+      if (!valid && process.env.NODE_ENV !== 'production') {
+        const devId = Number((req.headers['x-dev-user'] as string) || 1000 + Math.floor(Math.random() * 100000));
+        userInfo = { id: devId, username: 'dev', first_name: 'Dev', last_name: 'User' } as any;
+        valid = {} as any;
+      }
+      const userId = Number(userInfo?.id);
+      if (!userId) return res.status(400).send('User required');
+      const sessionId = crypto.randomUUID();
+      const r = await getRedis();
+      const ts = Date.now();
+      if (r) {
+        await r.hSet(`snake:session:${sessionId}`, {
+          userId: String(userId),
+          start_ts: String(ts),
+          status: 'running',
+        });
+      }
+      logger.info({ sessionId, userId }, 'Session started');
+      return res.json({ sessionId, userId });
+    } catch (e) {
+      logger.error(e, 'Failed to start session');
+      res.status(500).send('error');
+    }
+  });
+
+  app.post('/session/event', async (req, res) => {
+    try {
+      const { sessionId, type, ts, payload } = req.body || {};
+      if (!sessionId || !type) return res.status(400).send('Bad');
+      const r = await getRedis();
+      const key = `snake:session:${sessionId}:events`;
+      const entry = JSON.stringify({ type, ts: ts || Date.now(), payload });
+      if (r) await r.rPush(key, entry);
+      // quick aggregation for ASCII sequence
+      if (r && type === 'key') {
+        const sym = String(payload?.dir || '').charAt(0).toUpperCase(); // U/D/L/R
+        await r.append(`snake:session:${sessionId}:seq`, sym);
+      }
+      if (r && type === 'shoot') {
+        await r.append(`snake:session:${sessionId}:seq`, 'S');
+      }
+      logger.info({ sessionId, type, payload }, 'Session event');
+      res.status(204).end();
+    } catch (e) {
+      logger.error(e, 'Failed to log event');
+      res.status(500).send('error');
+    }
+  });
+
+  app.post('/session/finish', async (req, res) => {
+    try {
+      const { sessionId, score, durationMs } = req.body || {};
+      if (!sessionId) return res.status(400).send('Bad');
+      const r = await getRedis();
+      let seq = '';
+      if (r) seq = (await r.get(`snake:session:${sessionId}:seq`)) || '';
+      if (r) {
+        const now = Date.now();
+        await r.hSet(`snake:session:${sessionId}`, {
+          end_ts: String(now),
+          duration_ms: String(durationMs || 0),
+          score: String(score || 0),
+          status: 'finished',
+          seq,
+        });
+      }
+      logger.info({ sessionId, score, durationMs, seq }, 'Session finished');
+      res.status(200).json({ ok: true, seq });
+    } catch (e) {
+      logger.error(e, 'Failed to finish session');
+      res.status(500).send('error');
+    }
+  });
+
   // Server-Sent Events stream for diagnostics
   app.get('/events', (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
@@ -103,13 +183,22 @@ export function setupScoreHandling(app: Application, bot: Telegraf) {
       return res.status(400).send('Invalid request body');
     }
 
-    const valid = validateInitData(initData);
+    let valid = validateInitData(initData);
+    let userInfo = extractUser(initData);
+
+    if (!valid && process.env.NODE_ENV !== 'production') {
+      // Dev fallback: accept scores without Telegram initData
+      const devId = Number((req.headers['x-dev-user'] as string) || 999);
+      userInfo = { id: devId, username: 'dev', first_name: 'Dev', last_name: 'User' } as any;
+      logger.warn({ devId }, 'DEV MODE: accepting score without initData');
+      valid = {} as any;
+    }
+
     if (!valid) {
       logger.warn('Invalid initData received. Possible tampering.');
       return res.status(403).send('Forbidden: Invalid data');
     }
 
-    const userInfo = extractUser(initData);
     const userId = Number(userInfo?.id);
     if (!userId) {
       return res.status(400).send('User ID not found in initData');

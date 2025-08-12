@@ -1,3 +1,136 @@
+# Telegram Snake (Monorepo)
+
+A TypeScript monorepo containing:
+- packages/frontend: Vite + React canvas game (Snake) with starfield background, glowing lasers, power-ups, and audio
+- packages/bot: Express + Telegraf backend providing score, leaderboard, session logging, and health endpoints
+
+Repository structure
+- package.json (workspaces)
+- packages/
+  - frontend/
+    - src/
+      - config/ GameConfig and color maps
+      - entities/ Snake, Food, etc.
+      - game/ GameState, modifiers, renderer
+      - test/ vitest setup (stubs fetch, sets NODE_ENV)
+      - tests/ unit tests for snake, modifiers, random
+      - tests-e2e/ Playwright specs
+    - vite, vitest configs
+  - bot/
+    - src/
+      - core/ Logger, Healthcheck, ScoreHandler, RedisClient, SessionStore
+      - handlers/ bot handlers
+      - tests/ vitest unit tests for config, scores, sessions
+
+Key features
+- Visuals: parallax starfield, glowing laser bullets
+- Audio: embedded laser SFX on shoot; power-up SFX
+- Power-ups: INFERNO, PHASE, ICE, TOXIC, BLACKHOLE (disabled during unit tests for determinism)
+- Session logging: /session/start, /session/event, /session/finish; logs stored in Redis when available
+- Leaderboard: /api/leaderboard drawn on canvas at GameOver
+
+Getting started
+Prerequisites
+- Node.js 20+
+- Yarn 1.x (Berry not required)
+- Optional: Docker, Redis (for full backend features)
+
+Install
+- yarn install
+
+Local development (frontend only)
+- yarn dev:frontend
+- Open http://localhost:8889 (port set by script)
+
+Local development (backend + frontend + Redis)
+- yarn dev:all
+- Frontend at http://localhost:8889
+- Backend health/API at http://localhost:3001
+- Redis via docker compose
+
+Running tests
+- Unit tests + coverage: yarn test (runs both workspaces)
+- Frontend E2E: yarn test:e2e
+
+E2E configuration
+- Playwright runs against the Vite dev server
+- The E2E spec intercepts /api/leaderboard and does not require the bot service
+
+Build
+- yarn build (builds bot and frontend)
+
+Environment configuration
+- packages/bot/src/config uses zod to validate env
+- In NODE_ENV=test, BOT_TOKEN is optional, GAME_URL defaults to http://localhost:3000
+- In production, set:
+  - BOT_TOKEN: Telegram bot token
+  - GAME_URL: Publicly reachable URL used in Telegraf Game launch
+  - LOG_LEVEL: info|warn|error|debug (optional)
+
+Deployment recommendations
+- Test environment:
+  - Set NODE_ENV=production with staging BOT_TOKEN and GAME_URL
+  - Expose bot on public URL (reverse proxy) and point Telegram game to it
+  - Use Redis for persistence
+- Production:
+  - Ensure HTTPS, stable domain
+  - Run bot behind process manager (PM2/systemd), enable health endpoint /health
+  - Provision Redis with persistence and monitoring
+
+Troubleshooting
+- Mixed lockfiles warning: prefer yarn; remove package-lock.json if present
+- Node version issues: use Node 20.19.0+
+- Unit tests network errors: test setup stubs fetch and code guards NODE_ENV=test
+
+# Snake Game — Power-ups and Modifiers
+
+This build includes cinematic Double Boost Squares (power-ups), starfield background, laser shots, and sound effects.
+
+## Double Boost Squares (Power-ups)
+Each special square is rendered as a double-color pulsating tile and applies a timed modifier on eat.
+
+- Inferno (red–orange #FF4848 → #FFA500)
+  - Effect: Adrenaline — speed x1.5 for 3s
+  - Visual: mini fire explosion sparks, heat tint
+  - Sound: fwoosh-boom (sfx-inferno)
+- Phase Shift (violet–pink #9B59B6 → #F5ABF3)
+  - Effect: Ghost — pass through your own body for 4s
+  - Visual: warp collapse, slight ghost transparency
+  - Sound: vooourp hyper jump (sfx-phase)
+- Ice Shard (blue–cyan #3498DB → #1ABC9C)
+  - Effect: Time Freeze — speed x0.5 for 3s
+  - Visual: shatter burst and frosty ripple
+  - Sound: crack-shatter (sfx-ice)
+- Toxic Spill (green–yellow #2ECC71 → #F1C40F)
+  - Effect: Dissolve — instantly remove 3 tail segments (min length 3)
+  - Visual: sizzling puddle evaporates
+  - Sound: splash-hiss (sfx-toxic)
+- Black Hole (black–white #000000 ↔ #FFFFFF)
+  - Effect: Inversion — controls invert for 4s
+  - Visual: quick implosion, grid bends inward
+  - Sound: low rumble cutoff (sfx-blackhole)
+
+Spawn chance: 30% for any food. Otherwise rainbow food remains with existing color modifiers:
+
+- RED: slight speed up (cumulative)
+- GREEN: slight slow down (cumulative)
+- ORANGE: blinks (slower now)
+- BLUE: moves horizontally
+- YELLOW: enables shooting (laser)
+- VIOLET: disables shooting
+
+## Sounds
+Embedded SFX IDs you can customize in the DOM:
+- sfx-laser, sfx-inferno, sfx-phase, sfx-ice, sfx-toxic, sfx-blackhole, sfx-pickup
+
+## Visuals
+- Starfield background with twinkling stars
+- Rounded snake segments with glow on turn
+- Laser beam with red glow and white core
+
+## Dev
+- Frontend builds in Docker via compose. Local vite config may require ESM setup if running outside Docker.
+
 # 🐍 Telegram Snake Game (Production-Ready Edition)
 
 This is a production-ready monorepo template for a Telegram HTML5 Game (Snake) with a Telegram bot, inline mode, and a Vite-based frontend WebApp.

@@ -1,4 +1,4 @@
-import { GameConfig, Rainbow } from '../config';
+import { Rainbow } from '../config';
 import { GameState } from './GameState';
 
 export type Modifier = (gs: GameState) => void;

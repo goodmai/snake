@@ -15,6 +15,11 @@
     "noFallthroughCasesInSwitch": true,
     "isolatedModules": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": [
+    "src/tests",
+    "tests",
+    "**/*.test.*"
+  ]
 }
 

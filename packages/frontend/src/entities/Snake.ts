@@ -12,9 +12,12 @@ export class Snake {
     // По требованиям: размер змеи 4, узор G-Y-G-Y (зелёный-жёлтый)
     const baseColors = [COLORS.RAINBOW.GREEN, COLORS.RAINBOW.YELLOW, COLORS.RAINBOW.GREEN, COLORS.RAINBOW.YELLOW];
     const initLen = Math.max(4, SNAKE_INITIAL_LENGTH);
-    for (let i = 0; i < initLen; i++) {
-      const color = baseColors[i % baseColors.length];
-      this.body.unshift({ x: i, y: startY, color });
+    // Build from head (rightmost) to tail (leftmost) so that:
+    // head.x = initLen - 1 and colors follow [G, Y, G, Y, ...]
+for (let j = 0; j < initLen; j++) {
+      const color = baseColors[j % baseColors.length];
+      const x = (initLen - 1) - j;
+      this.body.push({ x, y: startY, color });
     }
     this.direction = 'RIGHT';
   }

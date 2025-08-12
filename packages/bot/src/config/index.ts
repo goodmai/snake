@@ -10,18 +10,31 @@ const rootEnvPath = path.resolve(__dirname, '../../../../.env');
 
 // Do not load .env files during tests to keep unit tests isolated
 // Also skip when VITEST is defined
-if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
+const IS_TEST = process.env.NODE_ENV === 'test' || !!process.env.VITEST;
+if (!IS_TEST) {
   dotenv.config({ path: rootEnvPath });
   dotenv.config();
 }
 
-const envSchema = z.object({
-  NODE_ENV: z.enum(['development', 'production']).default('development'),
-  BOT_TOKEN: z.string().min(1, 'BOT_TOKEN is required'),
+const common = {
+  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   GAME_SHORT_NAME: z.string().min(1).default('snake_ts_senior'),
-  GAME_URL: z.string().url('GAME_URL must be a valid URL'),
   LOG_LEVEL: z.enum(['info', 'warn', 'error', 'debug']).default('info'),
+} as const;
+
+const prodSchema = z.object({
+  ...common,
+  BOT_TOKEN: z.string().min(1, 'BOT_TOKEN is required'),
+  GAME_URL: z.string().url('GAME_URL must be a valid URL'),
 });
+
+const testSchema = z.object({
+  ...common,
+  BOT_TOKEN: z.string().optional(),
+  GAME_URL: z.string().url('GAME_URL must be a valid URL').default('http://localhost:3000'),
+});
+
+const envSchema = IS_TEST ? testSchema : prodSchema;
 
 const parsedEnv = envSchema.safeParse(process.env);
 

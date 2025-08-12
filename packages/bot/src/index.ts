@@ -6,6 +6,20 @@ import { GameHandler } from './handlers/game.handler.js';
 import { createHealthcheckServer } from './core/Healthcheck.js';
 import { setupScoreHandling } from './core/ScoreHandler.js';
 
+// Sentry initialization (disabled in tests)
+if (process.env.SENTRY_DSN && process.env.NODE_ENV !== 'test') {
+  const Sentry = await import('@sentry/node');
+  Sentry.init({ dsn: process.env.SENTRY_DSN, tracesSampleRate: 0.1 });
+  process.on('unhandledRejection', (reason) => {
+    try { (Sentry as any).captureException?.(reason); } catch {}
+    logger.error({ reason }, 'UnhandledRejection');
+  });
+  process.on('uncaughtException', (err) => {
+    try { (Sentry as any).captureException?.(err); } catch {}
+    logger.fatal(err, 'UncaughtException');
+  });
+}
+
 async function bootstrap() {
   const { app, server: healthcheckServer } = createHealthcheckServer();
   const bot = new Bot(config.BOT_TOKEN);

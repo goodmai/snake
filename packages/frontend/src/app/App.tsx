@@ -1,5 +1,6 @@
-import React, { useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { Game } from '../game/Game'
+import { GameLogger } from '../utils/logger'
 import { GameStatus } from '../game/GameState'
 
 export function App() {
@@ -37,15 +38,47 @@ export function App() {
       }
     })
 
+    // sync input inversion to handler each frame
+    const invInterval = window.setInterval(() => {
+      try {
+        const inv = (window as any).__INPUT_INVERT__ === true;
+        // @ts-ignore - reach into game internals minimally
+        (game as any).inputHandler?.setInverted?.(inv);
+      } catch {}
+    }, 50);
+
+    ;(window as any).GameLoggerCls = GameLogger
     game.start()
 
     return () => {
       (window as any).__game__ = undefined
+      try { window.clearInterval(invInterval) } catch {}
     }
   }, [])
 
   return (
     <div id="root" style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <audio id="sfx-laser" preload="auto">
+        <source src="data:audio/wav;base64,UklGRlQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABYAZGF0YYQAAAAA//8AAP//AAD//wAA//8AAP//AAD//wAA8f8AAPn/AAD9/wAA/f8AAPn/AADx/wAA/f8AAPn/AAD//wAA//8AAP//AAD//wAA" type="audio/wav" />
+      </audio>
+      <audio id="sfx-inferno" preload="auto">
+        <source src="data:audio/wav;base64,UklGRlQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABYAZGF0YYQAAAAA////AP//AP///wD///8A//8AAP//AP///wD//wAA//8A" type="audio/wav" />
+      </audio>
+      <audio id="sfx-phase" preload="auto">
+        <source src="data:audio/wav;base64,UklGRlQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABYAZGF0YQwAAAAA8PDw8PDw8PDw8PDw" type="audio/wav" />
+      </audio>
+      <audio id="sfx-ice" preload="auto">
+        <source src="data:audio/wav;base64,UklGRlQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABYAZGF0YQgAAAAA////AAAA////AAAA" type="audio/wav" />
+      </audio>
+      <audio id="sfx-toxic" preload="auto">
+        <source src="data:audio/wav;base64,UklGRlQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABYAZGF0YQwAAAAA8AAA8AAA8AAA8AAA" type="audio/wav" />
+      </audio>
+      <audio id="sfx-blackhole" preload="auto">
+        <source src="data:audio/wav;base64,UklGRlQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABYAZGF0YQgAAAAA////AP///wD///8A" type="audio/wav" />
+      </audio>
+      <audio id="sfx-pickup" preload="auto">
+        <source src="data:audio/wav;base64,UklGRlQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABYAZGF0YQcAAAAA////AAAAAP///w==" type="audio/wav" />
+      </audio>
       <canvas id="game-canvas" ref={canvasRef} />
       <div id="controls">
         <button id="btn-up" className="up">▲</button>

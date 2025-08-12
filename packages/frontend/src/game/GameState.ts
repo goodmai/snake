@@ -30,13 +30,28 @@ export enum GameStatus {
   Stopped,
 }
 
+export type Bullet = {
+  x: number; // continuous grid coords (0..cells)
+  y: number;
+  vx: number; // cells per tick
+  vy: number; // cells per tick
+  life: number; // ticks lived
+  maxLife: number; // safety cap
+};
+
 export class GameState {
   public snake: Snake;
   public food: Food;
   public score: number;
   public status: GameStatus;
   public canShoot: boolean = false;
+  public bullets: Bullet[] = [];
   private speedMultiplier = 1; // affected by red/green
+  // Timed effects
+  private adrenalineUntil = 0;
+  private ghostUntil = 0;
+  private inverseUntil = 0;
+  private iceUntil = 0;
 
   constructor() {
     this.snake = new Snake();
@@ -46,17 +61,31 @@ export class GameState {
   }
 
   public getCurrentSpeedMs(): number {
-    return Math.max(48, Math.round(GameConfig.GAME_SPEED_MS * this.speedMultiplier));
+    let mult = this.speedMultiplier;
+    const now = performance.now();
+    if (now < this.adrenalineUntil) mult *= 1/1.5; // faster
+    if (now < this.iceUntil) mult *= 2.0; // slower (x0.5 speed)
+    return Math.max(48, Math.round(GameConfig.GAME_SPEED_MS * mult));
   }
 
   public update(): void {
     // move special food (blue)
     this.food.tickMove(this.snake.getBody());
 
+    // update input inversion flag on handler via global
+    const now = performance.now();
+    try {
+      (window as any).__INPUT_INVERT__ = now < this.inverseUntil;
+    } catch {}
+
     this.snake.move();
     this.snake.tickEffects();
 
-    if (this.isWallCollision() || this.snake.checkSelfCollision()) {
+    // update bullets animation and collisions
+    this.updateBullets();
+
+    const ghostActive = performance.now() < this.ghostUntil;
+    if (this.isWallCollision() || (!ghostActive && this.snake.checkSelfCollision())) {
       this.status = GameStatus.GameOver;
       sendScoreToBackend(this.score).catch(console.error);
       return;
@@ -97,7 +126,10 @@ export class GameState {
     this.score = 0;
     this.status = GameStatus.Running;
     this.canShoot = false;
+    this.bullets = [];
     this.speedMultiplier = 1;
+    const now = performance.now();
+    this.adrenalineUntil = this.ghostUntil = this.inverseUntil = this.iceUntil = now;
     this.updateShootButton();
   }
 
@@ -110,18 +142,59 @@ export class GameState {
   }
   private onEatFood(): void {
     this.score++;
-    const { COLORS } = GameConfig;
-    const eatenColor = (COLORS.RAINBOW as any)[this.food.color];
+    const { COLORS, EFFECTS } = GameConfig;
+    const eatenColor = this.food.powerUp ? (this.food as any).colorA : (COLORS.RAINBOW as any)[this.food.color];
     // Поглощение цвета: окрасить хвост и усилить последний сегмент
     this.snake.grow(eatenColor);
 
+    // SFX per power-up type
+    const play = (id: string) => {
+      try { const el = document.getElementById(id) as HTMLAudioElement | null; el?.currentTime && (el.currentTime = 0); el?.play?.().catch(()=>{});} catch {}
+    };
+
+    // Apply special power-up effects
+    const now = performance.now();
+    switch (this.food.powerUp) {
+      case 'INFERNO':
+        this.adrenalineUntil = now + EFFECTS.INFERNO_MS; // x1.5 speed
+        play('sfx-inferno');
+        break;
+      case 'PHASE':
+        this.ghostUntil = now + EFFECTS.PHASE_MS; // pass-through
+        play('sfx-phase');
+        break;
+      case 'ICE':
+        this.iceUntil = now + EFFECTS.ICE_MS; // slow
+        play('sfx-ice');
+        break;
+      case 'TOXIC': {
+        // shorten by 3, keep min 3
+        const body = this.snake.getBody();
+        const minLen = 3;
+        const remove = Math.min(3, Math.max(0, body.length - minLen));
+        for (let i=0;i<remove;i++) body.pop();
+        play('sfx-toxic');
+        break;
+      }
+      case 'BLACKHOLE':
+        this.inverseUntil = now + EFFECTS.BLACK_HOLE_MS; // controls invert
+        play('sfx-blackhole');
+        break;
+      default:
+        // fallback small chime
+        play('sfx-pickup');
+    }
+
     // Клиентский лог: факт поедания с цветом
     try {
-      fetch('/api/log', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event: 'foodEaten', payload: { color: this.food.color, hex: eatenColor, score: this.score } }),
-      });
+      const isTest = typeof process !== 'undefined' && (process as any).env?.NODE_ENV === 'test';
+      if (!isTest && typeof window !== 'undefined') {
+        fetch('/api/log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ event: 'foodEaten', payload: { color: this.food.color, hex: eatenColor, score: this.score } }),
+        });
+      }
     } catch {}
 
     // Применить модификатор цвета
@@ -138,15 +211,26 @@ export class GameState {
   public shoot(): boolean {
     if (!this.canShoot) return false;
     const head = this.snake.getHead();
-    // Check if food is in the direction of head in same row/col
+    const dir = this.getDirectionVector();
+
+    // play laser sound if available
+    try {
+      const el = document.getElementById('sfx-laser') as HTMLAudioElement | null;
+      el?.currentTime && (el.currentTime = 0);
+      el?.play?.().catch(() => {});
+    } catch {}
+    try { (window as any).__glogger__?.event('shoot', {}); (window as any).__glogger__?.pushCmd('S'); } catch {}
+
+    // spawn bullet for animation
+    this.spawnBullet(head.x + 0.5, head.y + 0.5, dir.x, dir.y);
+
+    // Maintain existing immediate-hit logic for gameplay/tests
     const fx = this.food.position.x;
     const fy = this.food.position.y;
     const dx = fx - head.x;
     const dy = fy - head.y;
-    const dir = this.getDirectionVector();
     if ((dir.x !== 0 && dy === 0 && Math.sign(dx) === Math.sign(dir.x) && Math.abs(dx) > 0) ||
         (dir.y !== 0 && dx === 0 && Math.sign(dy) === Math.sign(dir.y) && Math.abs(dy) > 0)) {
-      // Hit
       this.onEatFood();
       return true;
     }
@@ -160,6 +244,40 @@ export class GameState {
     const vx = h.x - neck.x;
     const vy = h.y - neck.y;
     return { x: Math.sign(vx), y: Math.sign(vy) };
+  }
+
+  private spawnBullet(x: number, y: number, dx: number, dy: number): void {
+    // normalize direction; if zero (no movement), do nothing
+    if (dx === 0 && dy === 0) return;
+    // 10x faster laser travel
+    const speedCellsPerTick = 7.5;
+    this.bullets.push({ x, y, vx: dx * speedCellsPerTick, vy: dy * speedCellsPerTick, life: 0, maxLife: 16 });
+  }
+
+  private updateBullets(): void {
+    if (!this.bullets.length) return;
+    const { CANVAS_WIDTH, CANVAS_HEIGHT, GRID_SIZE } = GameConfig;
+    const maxX = Math.floor(CANVAS_WIDTH / GRID_SIZE);
+    const maxY = Math.floor(CANVAS_HEIGHT / GRID_SIZE);
+    const fx = this.food.position.x;
+    const fy = this.food.position.y;
+
+    this.bullets = this.bullets.filter((b) => {
+      b.x += b.vx;
+      b.y += b.vy;
+      b.life++;
+
+      // out of bounds or expired
+      if (b.x < 0 || b.y < 0 || b.x > maxX || b.y > maxY || b.life > b.maxLife) return false;
+
+      // if food still at some cell and bullet reached that cell center, keep animating; hit already handled in shoot()
+      const closeToFood = Math.abs(b.x - (fx + 0.5)) < 0.35 && Math.abs(b.y - (fy + 0.5)) < 0.35;
+      if (closeToFood) {
+        // allow a small overshoot, then remove
+        return b.life < Math.min(b.maxLife, 4);
+      }
+      return true;
+    });
   }
 
   private updateShootButton(): void {

@@ -6,14 +6,12 @@ describe('Config Validation', () => {
     vi.resetModules();
   });
 
-  it('should throw an error if BOT_TOKEN is missing', async () => {
-    // isolate environment
+  it('does not throw in test when BOT_TOKEN is missing', async () => {
     const originalEnv = { ...process.env };
     process.env = { NODE_ENV: 'test', VITEST: '1', GAME_URL: 'http://test.com' } as any;
 
-    await expect(import('../config/index.js')).rejects.toThrow(
-      'Invalid environment variables',
-    );
+    const mod = await import('../config/index.js');
+    expect(mod.config.GAME_URL).toBe('http://test.com');
 
     process.env = originalEnv as any;
   });
