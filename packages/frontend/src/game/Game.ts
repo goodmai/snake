@@ -50,6 +50,7 @@ export class Game {
       left: document.getElementById('btn-left'),
       right: document.getElementById('btn-right'),
     };
+    this.ensureShootButton();
     this.inputHandler.init(this.renderer.getCanvas(), controls);
 
     // Кнопка сначала как Start, затем как Restart
@@ -66,6 +67,21 @@ export class Game {
         }
       };
     }
+
+    const shootBtn = document.getElementById('btn-shoot') as HTMLButtonElement | null;
+    if (shootBtn) {
+      shootBtn.onclick = () => {
+        this.gameState.shoot();
+      };
+      shootBtn.style.display = 'none';
+    }
+
+    // keyboard support for shooting
+    window.addEventListener('keydown', (e) => {
+      if (e.key === ' ') {
+        this.gameState.shoot();
+      }
+    });
 
     this.gameLoopId = requestAnimationFrame(this.loop.bind(this));
   }
@@ -100,7 +116,7 @@ export class Game {
     
     const deltaTime = currentTime - this.lastFrameTime;
 
-    if (deltaTime >= GameConfig.GAME_SPEED_MS) {
+    if (deltaTime >= this.gameState.getCurrentSpeedMs()) {
       this.lastFrameTime = currentTime;
       this.update();
     }
@@ -269,6 +285,24 @@ export class Game {
     if (this.gameLoopId === null) {
       this.start();
     }
+  }
+  private ensureShootButton(): void {
+    if (document.getElementById('btn-shoot')) return;
+    // create floating button near controls
+    const btn = document.createElement('button');
+    btn.id = 'btn-shoot';
+    btn.textContent = '👅';
+    btn.style.position = 'fixed';
+    btn.style.bottom = '24px';
+    btn.style.right = '24px';
+    btn.style.width = 'var(--btn-size, 56px)';
+    btn.style.height = 'var(--btn-size, 56px)';
+    btn.style.fontSize = 'var(--btn-font, 18px)';
+    btn.style.borderRadius = '50%';
+    btn.style.display = 'none';
+    btn.style.alignItems = 'center';
+    btn.style.justifyContent = 'center';
+    document.body.appendChild(btn);
   }
 }
 

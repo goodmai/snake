@@ -6,10 +6,18 @@ export class Snake {
 
   constructor() {
     this.body = [];
-    const { GRID_SIZE, CANVAS_HEIGHT, SNAKE_INITIAL_LENGTH } = GameConfig;
+    const { GRID_SIZE, CANVAS_HEIGHT, SNAKE_INITIAL_LENGTH, COLORS } = GameConfig;
     const startY = Math.floor(CANVAS_HEIGHT / GRID_SIZE / 2);
+    const demoColors = [
+      COLORS.RAINBOW.RED,
+      COLORS.RAINBOW.ORANGE,
+      COLORS.RAINBOW.YELLOW,
+      COLORS.RAINBOW.GREEN,
+      COLORS.RAINBOW.BLUE,
+      COLORS.RAINBOW.VIOLET,
+    ];
     for (let i = 0; i < SNAKE_INITIAL_LENGTH; i++) {
-      this.body.unshift({ x: i, y: startY });
+      this.body.unshift({ x: i, y: startY, color: demoColors[i % demoColors.length] });
     }
     this.direction = 'RIGHT';
   }
@@ -40,8 +48,10 @@ export class Snake {
     this.body.pop();
   }
 
-  public grow(): void {
-    this.body.push({ ...this.body[this.body.length - 1] });
+  public grow(color?: string): void {
+    const tail = { ...this.body[this.body.length - 1] };
+    if (color) tail.color = color;
+    this.body.push(tail);
   }
 
   public checkSelfCollision(): boolean {

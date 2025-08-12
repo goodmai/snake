@@ -61,18 +61,18 @@ export function setupScoreHandling(app: Application, bot: Telegraf) {
       return res.status(400).send('Invalid request body');
     }
 
-    const userParams = validateInitData(initData);
-    if (!userParams) {
+    const valid = validateInitData(initData);
+    if (!valid) {
       logger.warn('Invalid initData received. Possible tampering.');
       return res.status(403).send('Forbidden: Invalid data');
     }
 
-    const userId = Number(userParams.get('id'));
+    const userInfo = extractUser(initData);
+    const userId = Number(userInfo?.id);
     if (!userId) {
       return res.status(400).send('User ID not found in initData');
     }
 
-    const userInfo = extractUser(initData);
     const displayName = userInfo?.username ? `@${userInfo.username}` : [userInfo?.first_name, userInfo?.last_name].filter(Boolean).join(' ') || String(userId);
     
     logger.info(`Setting score for user ${userId} to ${score}`);
@@ -102,7 +102,12 @@ export function setupScoreHandling(app: Application, bot: Telegraf) {
     try {
       const r = await getRedis();
       if (r) {
-        await r.zAdd(ZSET_KEY, [{ score, value: String(userId) }]);
+        // keep max score per user
+        const existing = await r.zRangeWithScores(ZSET_KEY, 0, -1);
+        const prev = existing.find((e: any) => String(e.value) === String(userId))?.score ?? -Infinity;
+        if (score > prev) {
+          await r.zAdd(ZSET_KEY, [{ score, value: String(userId) }]);
+        }
       } else {
         const prev = topScores.get(userId) ?? 0;
         if (score > prev) topScores.set(userId, score);

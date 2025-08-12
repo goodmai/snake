@@ -24,6 +24,10 @@ export class Renderer {
     return this.canvas;
   }
 
+  public getPixelSize(): number {
+    return this.pixelSize;
+  }
+
   public setupDPR(): void {
     const dpr = window.devicePixelRatio || 1;
     // Autoscale style size to viewport width with margins
@@ -90,7 +94,7 @@ export class Renderer {
     const body = snake.getBody();
 
     const head = body[0];
-    this.ctx.fillStyle = COLORS.SNAKE_HEAD;
+    this.ctx.fillStyle = head.color || COLORS.SNAKE_HEAD;
     this.ctx.fillRect(
       head.x * this.pixelSize,
       head.y * this.pixelSize,
@@ -98,9 +102,9 @@ export class Renderer {
       this.pixelSize
     );
 
-    this.ctx.fillStyle = COLORS.SNAKE_BODY;
     for (let i = 1; i < body.length; i++) {
       const segment = body[i];
+      this.ctx.fillStyle = segment.color || COLORS.SNAKE_BODY;
       this.ctx.fillRect(
         segment.x * this.pixelSize,
         segment.y * this.pixelSize,
@@ -112,7 +116,9 @@ export class Renderer {
 
   public drawFood(food: Food): void {
     const { COLORS } = GameConfig;
-    this.ctx.fillStyle = COLORS.FOOD;
+    if (!food.isVisibleThisFrame()) return;
+    const color = (COLORS.RAINBOW as any)[food.color] || COLORS.FOOD;
+    this.ctx.fillStyle = color;
     this.ctx.fillRect(
       food.position.x * this.pixelSize,
       food.position.y * this.pixelSize,

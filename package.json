@@ -19,7 +19,7 @@
     "dev:all": "yarn dev:redis && concurrently -k \"yarn dev:frontend\" \"yarn dev:bot:safe\""
   },
   "devDependencies": {
-    "@playwright/test": "^1.45.3",
+    "@playwright/test": "^1.54.2",
     "@typescript-eslint/eslint-plugin": "^7.13.0",
     "@typescript-eslint/parser": "^7.13.0",
     "eslint": "^8.57.0",

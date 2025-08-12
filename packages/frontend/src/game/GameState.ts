@@ -34,6 +34,8 @@ export class GameState {
   public food: Food;
   public score: number;
   public status: GameStatus;
+  public canShoot: boolean = false;
+  private speedMultiplier = 1; // affected by red/green
 
   constructor() {
     this.snake = new Snake();
@@ -42,7 +44,14 @@ export class GameState {
     this.status = GameStatus.Intro;
   }
 
+  public getCurrentSpeedMs(): number {
+    return Math.max(48, Math.round(GameConfig.GAME_SPEED_MS * this.speedMultiplier));
+  }
+
   public update(): void {
+    // move special food (blue)
+    this.food.tickMove(this.snake.getBody());
+
     this.snake.move();
 
     if (this.isWallCollision() || this.snake.checkSelfCollision()) {
@@ -52,15 +61,7 @@ export class GameState {
     }
 
     if (this.isFoodCollision()) {
-      this.score++;
-      this.snake.grow();
-      // Проверка победы: змея заняла всё поле
-      if (this.isWin()) {
-        this.status = GameStatus.GameOver;
-        sendScoreToBackend(this.score).catch(console.error);
-        return;
-      }
-      this.food.respawn(this.snake.getBody());
+      this.onEatFood();
     }
   }
 
@@ -93,6 +94,9 @@ export class GameState {
     this.food = new Food(this.snake.getBody());
     this.score = 0;
     this.status = GameStatus.Running;
+    this.canShoot = false;
+    this.speedMultiplier = 1;
+    this.updateShootButton();
   }
 
   // E2E helper: force game over and post score
@@ -101,6 +105,72 @@ export class GameState {
       this.status = GameStatus.GameOver;
       sendScoreToBackend(this.score).catch(console.error);
     }
+  }
+  private onEatFood(): void {
+    this.score++;
+    const { COLORS } = GameConfig;
+    const eatenColor = (COLORS.RAINBOW as any)[this.food.color];
+    this.snake.grow(eatenColor);
+
+    // Apply effects
+    switch (this.food.color) {
+      case 'RED':
+        this.speedMultiplier *= 0.95;
+        break;
+      case 'GREEN':
+        this.speedMultiplier *= 1.05;
+        break;
+      case 'YELLOW':
+        this.canShoot = true;
+        this.updateShootButton();
+        break;
+      case 'VIOLET':
+        this.canShoot = false;
+        this.updateShootButton();
+        break;
+      // ORANGE blinking handled in renderer; BLUE movement already handled in tickMove
+    }
+
+    if (this.isWin()) {
+      this.status = GameStatus.GameOver;
+      sendScoreToBackend(this.score).catch(console.error);
+      return;
+    }
+    this.food.respawn(this.snake.getBody());
+  }
+
+  public shoot(): boolean {
+    if (!this.canShoot) return false;
+    const head = this.snake.getHead();
+    // Check if food is in the direction of head in same row/col
+    const fx = this.food.position.x;
+    const fy = this.food.position.y;
+    const dx = fx - head.x;
+    const dy = fy - head.y;
+    const dir = this.getDirectionVector();
+    if ((dir.x !== 0 && dy === 0 && Math.sign(dx) === Math.sign(dir.x) && Math.abs(dx) > 0) ||
+        (dir.y !== 0 && dx === 0 && Math.sign(dy) === Math.sign(dir.y) && Math.abs(dy) > 0)) {
+      // Hit
+      this.onEatFood();
+      return true;
+    }
+    return false;
+  }
+
+  private getDirectionVector(): { x: number; y: number } {
+    const h = this.snake.getHead();
+    // approximate via next cell based on where the second segment is
+    const neck = this.snake.getBody()[1] || h;
+    const vx = h.x - neck.x;
+    const vy = h.y - neck.y;
+    return { x: Math.sign(vx), y: Math.sign(vy) };
+  }
+
+  private updateShootButton(): void {
+    const btn = document.getElementById('btn-shoot') as HTMLButtonElement | null;
+    if (!btn) return;
+    btn.style.display = this.canShoot ? 'inline-flex' : 'none';
+    btn.disabled = !this.canShoot;
   }
 }
 
